@@ -1,38 +1,80 @@
 # 原神抽卡点名器 · 修复增强版
 
-> ⚠️ **本项目是修改版（fork）**
->
-> 基于 [animation-picker/genshin-impact](https://github.com/animation-picker/genshin-impact) 二次修改，
-> 原作者与贡献者：AguzzTN54、cyanial、luyanci 等。
->
-> 遵循原项目的 **CC BY-NC-SA 4.0** 协议：**禁止商业用途**，转载/发布必须署名并使用相同协议。
-> 本修改版同样**不得用于任何商业用途**。
+> 一个用「原神抽卡」的方式点名 / 抽人的小工具。抽到谁，就像抽卡出金一样。
+
+**这个版本修好了官方版的两个毛病：**
+
+- ❌ 官方 Electron 版双击后 **卡在加载界面**（进度条永远停在 0%）
+- ❌ **每次启动都要重新导入名单**
+
+**并新增：一圈内点名不重复。**
 
 ---
 
-## 这个版本做了什么
+## ⬇️ 直接下载（Windows，解压即用）
+
+### [点这里下载 → genish-impact-win32-x64-fixed.zip（250 MB）](https://github.com/Hina52015/genshin-impact/releases/download/v0.1.3-fix2-fixed/genish-impact-win32-x64-fixed.zip)
+
+**三步就能用：**
+
+1. 下载后 **右键 → 解压到当前文件夹**
+2. 双击里面的 **genish-impact.exe**
+3. 防火墙弹窗 → 点 **允许**；出现「未知发布者」→ **更多信息 → 仍要运行**
+
+> 不需要安装、不需要管理员权限、不需要联网。
+
+---
+
+## 📋 怎么用
+
+**1. 准备名单** —— 新建一个 txt 文件（**保存时选 UTF-8 编码**），每行一个人：
+
+```
+5 张三
+4 李四
+3 王五
+```
+
+- 格式是「**星级 空格 名字**」
+- 星级只能填 **3、4、5**（填别的不会出结果）
+- 名字里**不要有空格**
+
+**2. 导入名单** —— 打开程序，点**页面左上角的问号按钮**，选择那个 txt。
+
+**3. 开始点名** —— 选点名模式，点抽卡。一圈之内每个人只会被抽到一次，全部抽完自动开始新一轮。
+
+> 💡 导入一次就够了，以后打开程序名单还在。
+
+---
+
+## 🧾 关于文件名的小提示
+
+文件名叫 genish-impact.exe，这里少了一个 n —— **这是上游项目本来的拼写，不是笔误**。
+
+上游的打包脚本里写死的就是这个名字（electron-packager ./ genish-impact），
+官方发布的所有文件也都叫这个。为了和原版保持一致，这里没有改名。
+
+---
+
+## 🔧 修复了什么（技术细节）
 
 ### 1. 修复：Electron 版卡在加载界面（对应上游 Issue #83）
 
-**现象**：Windows 压缩包版双击后，窗口能弹出，但进度条永远停在 "Connecting"、0%，等多久都不动。
+**现象**：Windows 压缩包版双击后，窗口能弹出，但进度条永远停在 Connecting、0%，等多久都不动。
 
-**根因**（已定位到具体文件）：
+**根因**：打包产物中的 static/index.html 引用了 start-f8fe3a3c.js，
+而该版本实际打包出的入口脚本是 start-d03a7c04.js。
+两者不一致 → 入口脚本 404 → SvelteKit 无法 hydrate → 页面停在预渲染的加载画面。
 
-打包产物里的 static/index.html 引用了 **start-f8fe3a3c.js**，
-而该版本实际打包出来的入口脚本是 **start-d03a7c04.js**。
-
-两者对不上 → 入口脚本 404 → SvelteKit 无法 hydrate →
-页面就停在预渲染出来的静态加载画面上，永远不会前进。
-
-**修复**：把 index.html 里的两处引用改成实际存在的 start-d03a7c04.js。
+**修复**：将 index.html 中的引用改为实际存在的 start-d03a7c04.js。
 
 ### 2. 修复：每次启动都要重新导入名单
 
-**根因**：main.js 中 express 使用 listen(0, ...) 随机端口（上游 Issue #52 也提到这点）。
-浏览器存储按"源（协议+域名+端口）"隔离，端口一变就等于换了一个新网站，
+**根因**：main.js 中 express 使用 listen(0) 随机端口（上游 Issue #52 也提到）。
+浏览器存储按「源（协议+域名+端口）」隔离，端口一变就等于换了一个新网站，
 localStorage 里的名单、设置、保底记录全部丢失。
 
-**修复**：改为固定端口 47821；若被占用则自动回退到随机端口（此时存储仍会重置，但至少能启动）。
+**修复**：固定端口 47821；若被占用则自动回退到随机端口。
 
 ### 3. 新增：点名抽过不重复
 
@@ -44,8 +86,7 @@ localStorage 里的名单、设置、保底记录全部丢失。
 
 ### 4. 改进：随机数质量
 
-点名抽人由 Math.random() 改为 crypto.getRandomValues()，
-并使用拒绝采样消除取模偏差。
+点名抽人由 Math.random() 改为 crypto.getRandomValues()，并使用拒绝采样消除取模偏差。
 
 ### 5. 改进：窗口
 
@@ -53,58 +94,38 @@ localStorage 里的名单、设置、保底记录全部丢失。
 - 启动即最大化，但**保留边框**（不是全屏）
 - 按显示器可用区自动计算尺寸，兼容 350% 等高 DPI 缩放，保证窗口永不超出屏幕
 
----
+### 改动的文件
 
-## 文件说明
+只有以下几个（其余与上游一致）：
 
-本仓库中，被修改的文件只有以下几个（其余与上游一致）：
-
-    electron-static/
-    ├── main.js                                  ← 端口固定 / 窗口 / 缩放
-    ├── package.json                             ← 与上游一致
-    └── static/
-        ├── index.html                           ← 入口修正 + 启动重置
-        └── internal/immutable/chunks/
-            ├── i18n-9a7a1fd0.js                 ← 点名池过滤 + crypto 随机
-            └── _page-3e92b9ab.js                ← 记录已抽取成员
-
-详细的逐文件改动见 [CHANGES.md](./CHANGES.md)。
+```
+electron-static/
+├── main.js                                  ← 端口固定 / 窗口 / 缩放
+└── static/
+    ├── index.html                           ← 入口修正 + 启动重置
+    └── internal/immutable/chunks/
+        ├── i18n-9a7a1fd0.js                 ← 点名池过滤 + crypto 随机
+        └── _page-3e92b9ab.js                ← 记录已抽取成员
+```
 
 ---
 
-## 如何使用
+## 📄 许可证
 
-### 方式一：使用我打包好的程序
-
-见本仓库的 **Releases** 页面。
-
-### 方式二：自己用上游的包 + 本仓库的文件
-
-1. 从上游 Releases 下载 genish-impact-Windows-X64.zip（v0.1.3-fix2）
-2. 解压后，把本仓库 electron-static 下的对应文件覆盖进去
-   （注意：本仓库对应的是解包后的 resources/app 明文目录结构）
-3. 双击 genish-impact.exe
-
-### 点名名单格式
-
-新建一个 txt（UTF-8 编码），每行一个：
-
-    5 张三
-    4 李四
-    3 王五
-
-星级只能填 3、4、5。进程序后点左上角的问号按钮上传。
-
----
-
-## 许可证
-
-本项目沿用上游的 **CC BY-NC-SA 4.0**，详见 [LICENSE](./LICENSE)。
+沿用上游的 **CC BY-NC-SA 4.0**，详见 [LICENSE](./LICENSE)。
 
 - ✅ 可以自由使用、修改、分发
 - ✅ 必须署名原作者
 - ✅ 修改版必须使用相同协议
 - ❌ **不得用于商业用途**
+
+## 🙏 致谢
+
+- 上游项目：[animation-picker/genshin-impact](https://github.com/animation-picker/genshin-impact)
+- 原始作者：AguzzTN54、cyanial、luyanci 等
+- 原始 Wish Simulator：[Mantan21/Genshin-Impact-Wish-Simulator](https://github.com/Mantan21/Genshin-Impact-Wish-Simulator)
+
+> 上游项目目前已归档（Archived），本仓库为其修复分支。
 
 ---
 
@@ -174,17 +195,4 @@ copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-## Star History
-
-<a href="https://star-history.com/#animation-picker/genshin-impact&Timeline">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=animation-picker/genshin-impact&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=animation-picker/genshin-impact&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=animation-picker/genshin-impact&type=Timeline" />
- </picture>
-</a>>
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAM
